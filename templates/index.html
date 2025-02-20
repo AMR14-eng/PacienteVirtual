@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta Médica</title>
+    <link rel="stylesheet" href="static/styles.css">
+    <script>
+        async function sendText() {
+            const inputText = document.getElementById("inputText").value;
+            const responseArea = document.getElementById("responseArea");
+
+            if (!inputText) return;
+
+            const response = await fetch("http://127.0.0.1:5000/predict", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ text: inputText })
+            });
+
+            const data = await response.json();
+
+            responseArea.innerHTML += `<div class="message doctor"><strong>Doctor:</strong> ${inputText}</div>`;
+            responseArea.innerHTML += `<div class="message patient"><strong>Paciente:</strong> ${data.response}</div>`;
+
+            document.getElementById("inputText").value = "";
+
+            responseArea.scrollTop = responseArea.scrollHeight;
+
+            if (data.prediction === "diagnostico") {
+                alert("Diagnóstico correcto: consulta finalizada.");
+                document.getElementById("sendButton").disabled = true;
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="chat-container">
+        <h1>Interacción de Consulta Médica</h1>
+        <div id="responseArea">
+            <div class="message patient"><strong>Paciente:</strong> Buenos días, doctor.</div>
+        </div>
+        <div class="input-container">
+            <input type="text" id="inputText" placeholder="Escriba su pregunta aquí">
+            <button id="sendButton" onclick="sendText()">Enviar</button>
+        </div>
+    </div>
+</body>
+</html>
