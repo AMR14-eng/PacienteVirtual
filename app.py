@@ -12,13 +12,16 @@ app = Flask(__name__)
 modelo = joblib.load("modelo_entrenado.pkl")
 
 def get_connection():
-    return psycopg2.connect(
-        dbname=os.getenv("DB_NAME"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        host=os.getenv("DB_HOST"),
-        port=os.getenv("DB_PORT", "5432")
-    )
+     # Obtén la URL completa de conexión desde la variable de entorno
+    db_url = os.getenv("DATABASE_URL")
+    
+    # Asegúrate de que la variable de entorno esté configurada
+    if db_url is None:
+        raise ValueError("DATABASE_URL no está configurada")
+    
+    # Conexión a la base de datos usando la URL de Render
+    return psycopg2.connect(db_url)
+
 
 @app.route("/")
 def home():
