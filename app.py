@@ -8,7 +8,7 @@ from preprocesamiento import preprocesar_texto
 # Cargar variables de entorno desde .env (funciona localmente)
 load_dotenv()
 
-app = Flask(_name_)
+app = Flask(__name__)
 modelo = joblib.load("modelo_entrenado.pkl")
 
 def get_connection():
@@ -78,5 +78,5 @@ def predict():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-if _name_ == "_main_":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+if __name__ == "__main__":
+    app.run()
