@@ -1,201 +1,168 @@
-import joblib
 from sklearn.pipeline import make_pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.naive_bayes import MultinomialNB
-from preprocesamiento import preprocesar_texto
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+import joblib
 
-# Frases por categoría para entrenar el modelo
-frases_consulta = [
-    "Hola, buen día, digame en que le puedo ayudar",
-    "Cual es el motivo de su consulta",
-    "En que puedo ayudarte hoy",
-    "¡Hola! ¿En qué puedo asistirte hoy?",
-    "¿Qué problema le trae hoy aquí?",
-    "¿Cómo puedo ayudarte en este momento?",
-    "¿Cuál es el motivo de tu consulta?",
-    "¿Qué te trae por aquí?",
-    "¡Buenos días! ¿En qué puedo ser útil?",
-    "¿Hay algo en lo que pueda ayudarte?",
-    "¡Hola! ¿Qué necesitas saber o resolver hoy?"
-]
-etiquetas_consulta = ["consulta"] * len(frases_consulta)
+# Preprocesamiento básico
+def preprocesar_texto(texto):
+    return texto.lower().strip()
 
-frases_frecuencia = [
-    "Con que frecuencia los padece",
-    "Cual es la frecuencia de estos dolores",
-    "Estos dolores de cabeza ocurren mas de 15 días al mes",
-    "Con que frecuencia los presenta",
-    "Suelen ocurrir menos de 15 días al mes",
-    "¿Cada cuánto tiempo tienes estos dolores?",
-    "¿Con qué frecuencia experimentas estos síntomas?",
-    "¿Los dolores aparecen muy seguido?",
-    "¿Estos dolores ocurren varias veces al mes?",
-    "¿Son dolores frecuentes o esporádicos?",
-    "¿Podrías decirme cuántas veces al mes ocurre?",
-    "¿Es algo que pasa todos los días o solo de vez en cuando?",
-    "¿Los dolores se presentan constantemente o de forma ocasional?"
-]
-etiquetas_frecuencia = ["frecuencia"] * len(frases_frecuencia)
+# Frases por categoría (diversas y balanceadas)
+frases_por_categoria = {
+    "consulta": [
+        "¿En qué puedo ayudarte hoy?",
+        "¿Cuál es el motivo de tu consulta?",
+        "¿Qué te trae por aquí?",
+        "¿Cómo puedo asistirte?",
+        "¿Qué problema presentas hoy?",
+        "Hola, ¿qué deseas consultar?",
+        "¿Qué inquietud de salud tienes?",
+        "¿Cómo puedo ayudarte con tu dolor?",
+        "¿Vienes por algún malestar específico?",
+        "¿Deseas hablar sobre algún síntoma?"
+    ],
+    "frecuencia": [
+        "¿Con qué frecuencia sientes el dolor?",
+        "¿Ocurre seguido o es esporádico?",
+        "¿Cada cuántos días tienes los síntomas?",
+        "¿Esto pasa seguido?",
+        "¿Sucede más de una vez por semana?",
+        "¿El dolor es recurrente?",
+        "¿Te pasa todos los días o solo algunos?",
+        "¿Con qué regularidad ocurre esto?",
+        "¿Es algo frecuente?",
+        "¿Pasa de forma repetitiva?"
+    ],
+    "intensidad": [
+        "¿Qué tan fuerte es el dolor?",
+        "¿Cómo calificarías la intensidad?",
+        "¿Es un dolor leve o severo?",
+        "¿En una escala del 1 al 10, cuánto duele?",
+        "¿Es incapacitante?",
+        "¿Puedes soportarlo o te impide hacer cosas?",
+        "¿Te afecta mucho el dolor?",
+        "¿Es algo leve o realmente fuerte?",
+        "¿Se siente suave o agudo?",
+        "¿El dolor es moderado?"
+    ],
+    "localizacion": [
+        "¿Dónde sientes el dolor exactamente?",
+        "¿El dolor está en la cabeza o en otra parte?",
+        "¿Puedes señalarme la zona?",
+        "¿Se localiza en algún punto específico?",
+        "¿En qué parte del cuerpo?",
+        "¿Es en un solo lado o ambos?",
+        "¿Está en la frente, sien o nuca?",
+        "¿Dolor en el cuello también?",
+        "¿Es frontal, lateral o posterior?",
+        "¿El dolor se concentra en una región?"
+    ],
+    "agravamiento": [
+        "¿Hay algo que empeora el dolor?",
+        "¿Se intensifica al moverte?",
+        "¿La luz o el ruido lo agravan?",
+        "¿Se agrava con el estrés?",
+        "¿Comer afecta el dolor?",
+        "¿Qué factores lo empeoran?",
+        "¿Alguna actividad lo hace peor?",
+        "¿Se incrementa con el clima?",
+        "¿El ejercicio lo agrava?",
+        "¿Algo lo hace más difícil de soportar?"
+    ],
+    "inicio": [
+        "¿Desde cuándo tienes este dolor?",
+        "¿Cuándo comenzaron los síntomas?",
+        "¿Es reciente o lleva tiempo?",
+        "¿Cuándo notaste el primer síntoma?",
+        "¿Desde hace cuántos días empezó?",
+        "¿Llevas mucho con esto?",
+        "¿El malestar empezó esta semana?",
+        "¿Es algo nuevo o crónico?",
+        "¿El dolor es de aparición reciente?",
+        "¿Puedes recordar cuándo inició?"
+    ],
+    "irradiacion": [
+        "¿El dolor se expande a otras zonas?",
+        "¿Se mueve a otras partes del cuerpo?",
+        "¿Es fijo o cambia de lugar?",
+        "¿Se irradia hacia el cuello u hombros?",
+        "¿El dolor viaja a otras áreas?",
+        "¿Lo sientes en más de un lugar?",
+        "¿Se queda en un solo sitio?",
+        "¿El dolor se desplaza?",
+        "¿Va hacia la espalda?",
+        "¿El malestar se mueve o es localizado?"
+    ],
+    "descripcion_dolor": [
+        "¿Cómo describirías el dolor?",
+        "¿Es punzante, opresivo o quemante?",
+        "¿Sientes presión o ardor?",
+        "¿Es constante o intermitente?",
+        "¿Es agudo o leve?",
+        "¿Te arde o pulsa?",
+        "¿Se siente como una presión o golpe?",
+        "¿Cómo es la sensación?",
+        "¿Es dolor punzante o latente?",
+        "¿El dolor parece eléctrico o difuso?"
+    ],
+    "sintomas": [
+        "¿Tienes otros síntomas además del dolor?",
+        "¿Hay náuseas, vómitos o mareos?",
+        "¿Acompañado de fiebre o visión borrosa?",
+        "¿Algo más te molesta?",
+        "¿Presentas otros signos clínicos?",
+        "¿Tienes molestias adicionales?",
+        "¿Síntomas como debilidad o confusión?",
+        "¿Aparecen otros malestares?",
+        "¿Experimentas otros cambios físicos?",
+        "¿Además del dolor, qué más sientes?"
+    ],
+    "medicamento": [
+        "¿Has tomado algo para el dolor?",
+        "¿Usaste algún analgésico?",
+        "¿Qué medicamento tomaste?",
+        "¿Has recurrido a pastillas?",
+        "¿Tomaste algo por tu cuenta?",
+        "¿Estás bajo tratamiento médico?",
+        "¿Te automedicaste?",
+        "¿Has usado ibuprofeno o paracetamol?",
+        "¿Tomaste algo recientemente?",
+        "¿Ya habías tratado este dolor?"
+    ],
+    "diagnostico": [
+        "Podría tratarse de migraña",
+        "Es posible que sea cefalea tensional",
+        "El diagnóstico puede ser neuralgia",
+        "Todo indica una migraña común",
+        "Podría ser jaqueca con aura",
+        "Esto parece una cefalea crónica",
+        "Se sospecha de migraña episódica",
+        "Podemos concluir que es jaqueca",
+        "Podría tratarse de una cefalea mixta",
+        "Mi diagnóstico sería migraña"
+    ]
+}
 
-frases_intensidad = [
-    "Podrías describir la intensidad del dolor",
-    "Cual suele ser la intensidad de estos dolores",
-    "Que tipo de dolor tiene",
-    "¿Cómo calificarías la intensidad del dolor en una escala del 1 al 10?",
-    "¿El dolor es leve, moderado o intenso?",
-    "¿Qué tan fuerte es el dolor que sientes?",
-    "¿El dolor es soportable o muy severo?",
-    "¿Cómo describirías el nivel de dolor que tienes?",
-    "¿Es un dolor suave o es incapacitante?",
-    "¿Es un dolor leve que puedes ignorar o es muy fuerte?",
-    "¿Sientes el dolor como algo ligero o como algo que te impide hacer actividades?"
-]
-etiquetas_intensidad = ["intensidad"] * len(frases_intensidad)
+# Preparar datos
+frases = []
+etiquetas = []
+for categoria, ejemplos in frases_por_categoria.items():
+    frases.extend([preprocesar_texto(f) for f in ejemplos])
+    etiquetas.extend([categoria] * len(ejemplos))
 
-frases_localizacion = [
-    "Puedes señalarme dónde sientes el dolor",
-    "En que parte presenta el dolor",
-    "En donde se localiza el dolor",
-    "En donde se encuentra el dolor",
-    "En donde le duele",
-    "Podria decirme en que parte de la cabeza siente el dolor",
-    "¿El dolor está en un lugar específico de la cabeza?",
-    "¿Puedes indicar exactamente dónde te duele?",
-    "¿Sientes el dolor en una zona en particular?",
-    "¿El dolor está en un solo lado de la cabeza o en ambos?",
-    "¿En qué parte del cuerpo sientes el dolor?",
-    "¿Podrías describir la ubicación del dolor?",
-    "¿Está el dolor más en la frente, sienes o parte trasera de la cabeza?",
-    "¿El dolor está en la parte superior, inferior o en algún lado específico?",
-    "¿Sientes el dolor más hacia el lado derecho, izquierdo o en el centro?",
-    "¿El dolor se concentra en una zona o se distribuye por toda la cabeza?"
-]
-etiquetas_localizacion = ["localizacion"] * len(frases_localizacion)
-
-frases_agravamiento = [
-    "El dolor aumenta o disminuye con algo en particular",
-    "Estos dolores empeoran con actividad fisica",
-    "Se agrava con algo en especifico",
-    "¿El dolor empeora en ciertas situaciones?",
-    "¿Hay algo que haga que el dolor sea más fuerte?",
-    "¿Notas que el dolor aumenta con alguna actividad?",
-    "¿Sientes que ciertos movimientos o acciones agravan el dolor?",
-    "¿Hay algo específico que haga que el dolor se intensifique?",
-    "¿El dolor empeora con el estrés o el esfuerzo físico?",
-    "¿Los síntomas aumentan con el ruido, la luz o algo más?",
-    "¿Notas que el dolor es más fuerte en algún momento del día?",
-    "¿El dolor empeora al realizar algún tipo de esfuerzo?",
-    "¿Se agrava el dolor con el clima o algún alimento?"
-]
-etiquetas_agravamiento = ["agravamiento"] * len(frases_agravamiento)
-
-frases_inicio = [
-    "Cuando inició el dolor",
-    "Desde cuando los presenta",
-    "¿Desde hace cuánto tiempo comenzó el dolor?",
-    "¿Recuerda cuándo empezó el dolor?",
-    "¿Cuánto tiempo lleva sintiendo el dolor?",
-    "¿Desde cuándo siente estas molestias?",
-    "¿El dolor es reciente o lleva tiempo con él?",
-    "¿Cuándo fue la primera vez que notó el dolor?",
-    "¿Desde hace cuánto lo siente?"
-]
-etiquetas_inicio = ["inicio"] * len(frases_inicio)
-
-frases_irradiacion = [
-    "El dolor se irradia a algun otro punto o se mantiene fijo",
-    "El dolor se le va a algun otro lugar o es fijo",
-    "¿El dolor se mueve hacia algún lado?",
-    "¿Siente que el dolor se expande a otra parte del cuerpo?",
-    "¿El dolor se queda en el mismo lugar o cambia de ubicación?",
-    "¿Se traslada el dolor a otras áreas?",
-    "¿El dolor se mantiene fijo o lo siente en otras zonas?",
-    "¿Siente el dolor en más de un lugar?",
-    "¿El dolor se irradia o es localizado?"
-]
-etiquetas_irradiacion = ["irradiacion"] * len(frases_irradiacion)
-
-frases_descripcion_dolor = [
-    "Como es el dolor",
-    "Podria describirme como es el dolor",
-    "Como le duele",
-    "Siente punzadas o es opresivo",
-    "¿El dolor es punzante, opresivo o de otro tipo?",
-    "¿Cómo describiría la sensación del dolor?",
-    "¿Siente que el dolor es constante o intermitente?",
-    "¿El dolor es como una presión, un ardor o algo diferente?",
-    "¿El dolor es leve, moderado o intenso?",
-    "¿Siente un dolor agudo o es más bien una molestia?",
-    "¿Es un dolor que aprieta o como si pulsara?",
-    "¿El dolor se siente como un pinchazo o más como una presión?"
-]
-etiquetas_descripcion_dolor = ["descripcion_dolor"] * len(frases_descripcion_dolor)
-
-frases_sintomas = [
-    "Aparte del dolor de cabeza presenta algun otro sintoma",
-    "¿Tiene algún otro síntoma además del dolor?",
-    "¿Presenta mareos, náuseas u otros síntomas?",
-    "¿Ha notado algo más aparte del dolor de cabeza?",
-    "¿Acompaña este dolor con otros malestares?",
-    "¿Hay otros síntomas que se presenten junto al dolor?",
-    "¿Tiene alguna molestia adicional al dolor de cabeza?",
-    "¿Además del dolor, siente algo más fuera de lo común?"
-]
-etiquetas_sintomas = ["sintomas"] * len(frases_sintomas)
-
-frases_medicamento = [
-    "Has tomado algun medicamento",
-    "Tomo ya algun medicamento",
-    "¿Ha tomado algo para aliviar el dolor?",
-    "¿Ha consumido algún analgésico o medicamento?",
-    "¿Qué medicamentos ha usado para tratar el dolor?",
-    "¿Ya tomó algo para este dolor?",
-    "¿Está tomando algún tratamiento para el dolor?",
-    "¿Ha recurrido a algún medicamento por su cuenta?",
-    "¿Tomó alguna pastilla o medicamento recientemente?"
-]
-etiquetas_medicamento = ["medicamento"] * len(frases_medicamento)
-
-frases_diagnostico = [
-    "Parece que está sufriendo de ",
-    "El diagnóstico probable es ",
-    "Es posible que tenga ",
-    "Todo indica que sufre de ",
-    "Podría tratarse de ",
-    "Está presentando signos de ",
-    "Se ha detectado un caso de ",
-    "La enfermedad detectada es ",
-    "Se ha diagnosticado ",
-    "Podemos concluir que se trata de ",
-    "Esto sugiere un diagnóstico de ",
-    "La condición médica que presenta es ",
-    "Su cuadro clínico corresponde a ",
-    "Se sospecha que tiene ",
-    "Según el análisis, tiene ",
-    "La evaluación médica revela ",
-    "Este resultado indica ",
-    "Su historial muestra signos de ",
-    "Su diagnostico es ",
-    "Mi diagnostico es "
-]
-etiquetas_diagnostico = ["diagnostico"] * len(frases_diagnostico)
-
-# Concatenar todas las frases y etiquetas
-frases = (
-    frases_consulta + frases_frecuencia + frases_intensidad + frases_localizacion +
-    frases_agravamiento + frases_inicio + frases_irradiacion + frases_descripcion_dolor +
-    frases_sintomas + frases_medicamento + frases_diagnostico
-)
-etiquetas = (
-    etiquetas_consulta + etiquetas_frecuencia + etiquetas_intensidad +
-    etiquetas_localizacion + etiquetas_agravamiento + etiquetas_inicio +
-    etiquetas_irradiacion + etiquetas_descripcion_dolor + etiquetas_sintomas +
-    etiquetas_medicamento + etiquetas_diagnostico
-)
+# Dividir datos
+X_train, X_test, y_train, y_test = train_test_split(frases, etiquetas, test_size=0.2, random_state=42)
 
 # Entrenar modelo
-frases_procesadas = [preprocesar_texto(f) for f in frases]
-modelo = make_pipeline(TfidfVectorizer(), MultinomialNB())
-modelo.fit(frases_procesadas, etiquetas)
+modelo = make_pipeline(TfidfVectorizer(), LogisticRegression(max_iter=1000))
+modelo.fit(X_train, y_train)
+
+# Evaluar modelo
+y_pred = modelo.predict(X_test)
+print(classification_report(y_test, y_pred))
+
+# Guardar modelo
 joblib.dump(modelo, "modelo_entrenado.pkl")
 print("Modelo entrenado y guardado con éxito.")

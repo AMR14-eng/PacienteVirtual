@@ -6,28 +6,49 @@ body {
     margin: 0;
     font-family: Arial, sans-serif;
     background-color: #f0f2f5;
+    padding: 10px;
+    box-sizing: border-box;
 }
+
 .chat-container {
     text-align: center;
-    width: 350px;
+    width: 100%;
+    max-width: 400px;
+    background-color: #ffffff;
+    padding: 20px 15px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    box-sizing: border-box;
 }
+
+/* Title styling */
 h1 {
     font-size: 1.5em;
-    color: #333;
+    color: #ffffff;
+    background-color: #007bff;
+    padding: 10px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
 }
+
 /* Chat window styling */
 #responseArea {
     border: 1px solid #ccc;
     background-color: #fff;
     padding: 10px;
     width: 100%;
+    max-width: 100%;
     height: 400px;
-    overflow-y: scroll;
+    overflow-y: auto;
     border-radius: 8px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
+    box-sizing: border-box;
 }
+
 /* Message styling */
 .message {
     max-width: 70%;
@@ -48,22 +69,23 @@ h1 {
     align-self: flex-start;
     text-align: left;
 }
+
 /* Input and button styling */
 .input-container {
     display: flex;
     margin-top: 10px;
+    gap: 5px;
 }
 #inputText {
-    width: 100%;
-    padding: 8px;
+    flex: 1;
+    padding: 10px;
     border: 1px solid #ccc;
     border-radius: 15px;
     outline: none;
     box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
 }
 #sendButton {
-    padding: 8px 15px;
-    margin-left: 5px;
+    padding: 10px 15px;
     border: none;
     background-color: #007bff;
     color: white;
@@ -74,4 +96,16 @@ h1 {
 }
 #sendButton:hover {
     background-color: #0056b3;
+}
+
+/* Responsive design for smaller devices */
+@media screen and (max-width: 480px) {
+    h1 {
+        font-size: 1.2em;
+        padding: 8px;
+    }
+
+    #responseArea {
+        height: 300px;
+    }
 }
