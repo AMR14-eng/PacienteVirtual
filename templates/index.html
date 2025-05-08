@@ -9,29 +9,46 @@
         async function sendText() {
             const inputText = document.getElementById("inputText").value;
             const responseArea = document.getElementById("responseArea");
-
+    
             if (!inputText) return;
+    
+            try {
+                const response = await fetch("/predict", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ text: inputText })
+                });
+    
+                const data = await response.json();
+    
+                if (response.ok) {
+                    responseArea.innerHTML += `<div class="message doctor"><strong>Doctor:</strong> ${inputText}</div>`;
+                    responseArea.innerHTML += `<div class="message patient"><strong>Paciente:</strong> ${data.respuesta} ${data.intencion}</div>`;
+    
+                    document.getElementById("inputText").value = "";
+                    responseArea.scrollTop = responseArea.scrollHeight;
+    
+                    if (data.intencion === "diagnostico") {
+                        document.getElementById("sendButton").disabled = true;
+                        document.getElementById("inputText").disabled = true;
 
-            const response = await fetch("http://127.0.0.1:5000/predict", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ text: inputText })
-            });
-
-            const data = await response.json();
-
-            responseArea.innerHTML += `<div class="message doctor"><strong>Doctor:</strong> ${inputText}</div>`;
-            responseArea.innerHTML += `<div class="message patient"><strong>Paciente:</strong> ${data.response}</div>`;
-
-            document.getElementById("inputText").value = "";
-
-            responseArea.scrollTop = responseArea.scrollHeight;
-
-            if (data.prediction === "diagnostico") {
-                alert("Diagnóstico correcto: consulta finalizada.");
-                document.getElementById("sendButton").disabled = true;
+                        if (data.end) {
+                            alert("Diagnóstico correcto: consulta finalizada.");
+                            responseArea.innerHTML += `<div class="message patient"><strong>Paciente:</strong> Bien hecho, acertaste</div>`;
+                        } else {
+                            alert("Diagnóstico incorrecto: consulta finalizada.");
+                            responseArea.innerHTML += `<div class="message patient"><strong>Paciente:</strong> La respuesta correcta era  ${data.respuesta_correcta}</div>`;
+                        }
+                        return;
+                    }
+                    
+                } else {
+                    alert("Error del servidor: " + (data.error || "Desconocido"));
+                }
+            } catch (error) {
+                alert("Error de conexión: " + error.message);
             }
         }
     </script>
