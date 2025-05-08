@@ -2,5 +2,4 @@ flask
 scikit-learn
 joblib
 spacy
-unicodedata
 psycopg2-binary
