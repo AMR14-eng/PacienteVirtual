@@ -2,17 +2,22 @@ from flask import Flask, request, jsonify, render_template
 import joblib
 import psycopg2
 from preprocesamiento import preprocesar_texto
+import os
+from dotenv import load_dotenv
+
+load_dotenv()  
+
 
 app = Flask(__name__)
 modelo = joblib.load("modelo_entrenado.pkl")
 
 def get_connection():
     return psycopg2.connect(
-        dbname="bot_medico",
-        user="postgres",
-        password="LLM28",  # Considera usar variables de entorno para mayor seguridad
-        host="localhost",
-        port="5432"
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST"),
+        port=os.getenv("DB_PORT", "5432")
     )
 
 @app.route("/")
