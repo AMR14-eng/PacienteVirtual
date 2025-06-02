@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, session
 import joblib
 import psycopg2
 import os
@@ -10,6 +10,7 @@ load_dotenv()
 
 app = Flask(__name__)
 modelo = joblib.load("modelo_entrenado.pkl")
+app.secret_key = os.getenv("SECRET_KEY")
 
 # Configura API OpenAI apuntando a Groq
 client = OpenAI(
@@ -60,6 +61,9 @@ def preguntar_a_llama(prompt_con_pregunta):
 
 @app.route("/")
 def home():
+    session['vidas'] = 3
+    session['puntos'] = 0
+    session['pacientes_usados'] = []
     return render_template("index.html")
 
 @app.route("/predict", methods=["POST"])
@@ -77,34 +81,81 @@ def predict():
         conn = get_connection()
         cur = conn.cursor()
 
-        # Obtener paciente aleatorio
-        cur.execute("SELECT * FROM paciente ORDER BY RANDOM() LIMIT 1")
-        colnames = [desc[0] for desc in cur.description]
-        values = cur.fetchone()
+        if "paciente" not in session:
+            usados = tuple(session.get('pacientes_usados', [])) or (0,)
+            cur.execute("SELECT * FROM paciente WHERE id NOT IN %s ORDER BY RANDOM() LIMIT 1", (usados,))
+            values = cur.fetchone()
+            if not values:
+                conn.close()
+                return jsonify({"error": "No se encontró paciente."}), 404
+            colnames = [desc[0] for desc in cur.description]
+            paciente_info = dict(zip(colnames, values))
+            session["paciente"] = paciente_info
+        else:
+            paciente_info = session["paciente"]
+
         conn.close()
 
-        if not values:
-            return jsonify({"error": "No se encontró paciente."}), 404
-
-        paciente_info = dict(zip(colnames, values))
 
         # Si la intención es diagnóstico, comparar texto con el diagnóstico real
         if intencion == "diagnostico":
             diagnostico_real = paciente_info.get("diagnostico", "").strip().lower()
             diagnostico_usuario = texto.strip().lower()
 
-            # Intenta extraer el diagnóstico desde la frase
-            if diagnostico_real in diagnostico_usuario:
-                es_correcto = True
-            else:
-                es_correcto = False
+            es_correcto = diagnostico_real in diagnostico_usuario
 
-            return jsonify({
-                "intencion": intencion,
-                "respuesta": texto,
-                "end": es_correcto,
-                "respuesta_correcta": diagnostico_real
-            })
+            if es_correcto:
+                session['puntos'] += 10
+                session['pacientes_usados'].append(paciente_info["id"])
+
+                # Buscar nuevo paciente que no haya sido usado
+                conn = get_connection()
+                cur = conn.cursor()
+                usados = tuple(session['pacientes_usados']) or (0,)  # evitar error de tupla vacía
+                cur.execute(
+                    "SELECT * FROM paciente WHERE id NOT IN %s ORDER BY RANDOM() LIMIT 1", (usados,)
+                )
+                colnames = [desc[0] for desc in cur.description]
+                values = cur.fetchone()
+                conn.close()
+
+                if not values:
+                    session.pop("paciente", None)
+                    return jsonify({
+                        "intencion": intencion,
+                        "respuesta": "¡Felicidades! Has diagnosticado a todos los pacientes disponibles.",
+                        "end": True,
+                        "puntos": session['puntos'],
+                        "vidas": session['vidas'],
+                        "completo": True
+                    })
+
+                nuevo_paciente = dict(zip(colnames, values))
+                session["paciente"] = nuevo_paciente
+
+                return jsonify({
+                    "intencion": intencion,
+                    "respuesta": "¡Bien hecho! Acertaste en el diagnóstico. Es hora de continuar con el siguiente paciente.",
+                    "end": True,
+                    "puntos": session['puntos'],
+                    "vidas": session['vidas'],
+                    "completo": False
+                })
+
+            else:
+                session['vidas'] -= 1
+                juego_terminado = session['vidas'] <= 0
+                if juego_terminado:
+                    session.clear()
+                return jsonify({
+                    "intencion": intencion,
+                    "respuesta": "Ese no es el diagnóstico correcto. Intenta de nuevo.",
+                    "end": False,
+                    "vidas": session.get('vidas', 0),
+                    "puntos": session.get('puntos', 0),
+                    "game_over": juego_terminado
+                })
+
 
         # Si no es diagnóstico, simular respuesta del paciente
         prompt_base = construir_prompt(paciente_info, intencion)
@@ -114,6 +165,8 @@ def predict():
         return jsonify({
             "intencion": intencion,
             "respuesta": respuesta,
+            "puntos": session['puntos'],
+            "vidas": session['vidas'],
             "diagnostico": paciente_info.get("diagnostico", "")
         })
 

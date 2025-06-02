@@ -6,6 +6,46 @@
     <title>Consulta Médica</title>
     <link rel="stylesheet" href="static/styles.css">
     <script>
+        function actualizarEstado(data) {
+            const vidasSpan = document.getElementById("vidas");
+            const corazonSpan = document.getElementById("corazon");
+            const puntosSpan = document.getElementById("puntos");
+            const estrellaSpan = document.getElementById("estrella");
+
+
+            // Obtener valor anterior de vidas y puntos
+            const vidasAntes = parseInt(vidasSpan.textContent);
+            const puntosAntes = parseInt(puntosSpan.textContent);
+
+
+            // Actualizar valores
+            vidasSpan.textContent = data.vidas;
+            puntosSpan.textContent = data.puntos;
+
+            // Si perdió vida, animar corazón
+            if (data.vidas < vidasAntes) { 
+                corazonSpan.classList.add("vibrar");
+                setTimeout(() => {
+                    corazonSpan.classList.remove("vibrar");
+                }, 500);
+            }
+            // Si ganó puntos, animar estrella
+            if (data.puntos > puntosAntes) {
+                estrellaSpan.classList.add("vibrar");
+                setTimeout(() => {
+                    estrellaSpan.classList.remove("vibrar");
+                }, 500);
+            }
+
+            // Deshabilitar inputs si vidas 0
+            if (data.vidas === 0) {
+                document.getElementById("sendButton").disabled = true;
+                document.getElementById("inputText").disabled = true;
+                alert("¡Qué mal, chav@! Se te acabaron los intentos: consulta finalizada.");
+            }
+        }
+
+
         async function sendText() {
             const inputText = document.getElementById("inputText").value;
             const responseArea = document.getElementById("responseArea");
@@ -32,21 +72,19 @@
                 loading.style.display = "none";
 
                 if (response.ok) {
+                    // Actualizar vidas y puntos
+                    actualizarEstado(data);
                     // Siempre mostrar lo que escribió el doctor (usuario)
                     responseArea.innerHTML += `<div class="message doctor"><strong>Doctor:</strong> ${inputText}</div>`;
 
                     if (data.intencion === "diagnostico") {
                         // Para diagnostico, mostrar solo el mensaje de felicitación o error
                         if (data.end) {
-                            responseArea.innerHTML += `<div class="message patient"><strong>Paciente:</strong> Bien hecho, acertaste.</div>`;
-                            alert("Diagnóstico correcto: consulta finalizada.");
+                            responseArea.innerHTML += `<div class="message patient"><strong>Paciente:</strong> ${data.respuesta} </div>`;
+                            responseArea.innerHTML += `<div class="message patient"><strong>Paciente:</strong> Buenos días, doctor.</div>`;
                         } else {
-                            responseArea.innerHTML += `<div class="message patient"><strong>Paciente:</strong> Ese no es el diagnóstico correcto. Intenta de nuevo.</div>`;
-                            alert("Diagnóstico incorrecto: consulta finalizada.");
+                            responseArea.innerHTML += `<div class="message patient"><strong>Paciente:</strong> ${data.respuesta} </div>`;
                         }
-                        // Deshabilitar inputs al terminar
-                        document.getElementById("sendButton").disabled = true;
-                        document.getElementById("inputText").disabled = true;
 
                     } else {
                         // Para otras intenciones, mostrar la respuesta del paciente normal
@@ -70,6 +108,14 @@
 <body>
     <div class="chat-container">
         <h1>Interacción de Consulta Médica</h1>
+        <div id="stats">
+            <p>
+                <span id="corazon">❤️</span> Vidas: <span id="vidas">3</span> 
+                <span id="estrella">⭐</span> Puntos: <span id="puntos">0</span>
+            </p>
+        </div>
+
+
         <div id="responseArea">
             <div class="message patient"><strong>Paciente:</strong> Buenos días, doctor.</div>
         </div>
