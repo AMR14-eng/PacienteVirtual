@@ -27,37 +27,39 @@ def get_connection():
 # Construye el prompt a partir de los síntomas del paciente
 def construir_prompt(fila, intencion):
     prompt = (
-        "Eres un paciente en una consulta médica. Responde como un humano real, con emociones, y de forma coherente.\n"
-        "pero responde específicamente a la pregunta que te hace el doctor según el motivo de la consulta.\n\n"
-        "Tus síntomas actuales y antecedentes médicos son:\n\n"
+        "Eres un paciente en una consulta médica. Responde solo con tus síntomas y cómo te sientes actualmente.\n"
+        "Tus síntomas actuales son:\n"
     )
     for columna, valor in fila.items():
-        if columna != "id":  # Ignorar ID
+        if columna not in ("id", "diagnostico"):  # Excluye id y diagnóstico
             prompt += f"{columna.capitalize()}: {valor}\n"
 
     prompt += f"\nEl doctor te pregunta sobre: {intencion}\n"
-    prompt += "Responde con información relevante y concreta, sin añadir cosas fuera del tema.\n\n"
     prompt += "Doctor: {pregunta}\nPaciente:"
     return prompt
 
-# Pregunta al modelo LLaMA 3
+# Recibe prompt y lo envia al modelo LLaMA 3
 def preguntar_a_llama(prompt_con_pregunta):
     response = client.chat.completions.create(
         model="llama3-8b-8192",
         messages=[
             {"role": "system", "content": (
-                "Actúa como un paciente real en una consulta médica. "
-                "Responde de forma natural, clara y concisa. "
-                "No incluyas descripciones de acciones entre paréntesis. "
-                "No rolees comportamientos físicos. "
-                "Solo responde con tus síntomas y cómo te sientes, como si hablaras normalmente con un doctor."
-                "Limita tu respuesta a un máximo de 3 oraciones."
+                "Eres un paciente real en una consulta médica. "
+                "Responde solo describiendo tus síntomas actuales y cómo te sientes. "
+                "No digas nombres de enfermedades ni diagnósticos. "
+                "No incluyas descripciones de acciones ni explicaciones médicas. "
+                "Limita la respuesta a máximo 50 palabras, con un tono natural y claro."
+                "No menciones diagnósticos previos, nombres de enfermedades ni antecedentes médicos."
+                "No añadas explicaciones ni información fuera del tema."
+                "Sé breve y claro, máximo 2-3 oraciones."
             )},
             {"role": "user", "content": prompt_con_pregunta}
         ],
-        temperature=0.4
+        temperature=0.3,
+        max_tokens=100
     )
     return response.choices[0].message.content
+
 
 @app.route("/")
 def home():
